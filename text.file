@@ -1,0 +1,231 @@
+🏗️ Your Project Architecture & How It Works
+Let me explain the complete architecture of your Lightweight LangChain-powered Bedrock Chat System and how all the components work together.
+📊 High-Level Architecture Overview
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│                 │    │                  │    │                 │
+│   FRONTEND      │◄──►│   API GATEWAY    │◄──►│ AWS BEDROCK     │
+│   (React)       │    │   (FastAPI)      │    │ (Claude Models) │
+│   Port: 3000    │    │   Port: 8000     │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                        │
+         │                        ▼
+         │              ┌──────────────────┐
+         │              │                  │
+         └──────────────│   FILE SERVICE   │
+                        │   (FastAPI)      │
+                        │   Port: 7000     │
+                        └──────────────────┘
+                                 │
+                                 ▼
+         ┌─────────────────────────────────────────┐
+         │                                         │
+         │      LIGHTWEIGHT LANGCHAIN Q&A         │
+         │          SERVICE (FastAPI)              │
+         │            Port: 6000                   │
+         │                                         │
+         │  ┌─────────────┐  ┌─────────────────┐  │
+         │  │ ChromaDB    │  │ SentenceTransf. │  │
+         │  │ Vector      │  │ Embeddings      │  │
+         │  │ Store       │  │ (MiniLM-L6-v2)  │  │
+         │  └─────────────┘  └─────────────────┘  │
+         └─────────────────────────────────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────┐
+                    │                  │
+                    │   MySQL DATABASE │
+                    │   Port: 3306     │
+                    │                  │
+                    └──────────────────┘
+🔄 Complete Data Flow: How Everything Works
+1. Document Upload & Processing Flow
+User uploads file → Frontend → API Gateway → File Service → Database
+                                     ↓
+              LangChain Q&A Service ← Background Processing ← File Service
+                        ↓
+              Text Splitting (RecursiveCharacterTextSplitter)
+                        ↓
+              Vector Embeddings (SentenceTransformers)
+                        ↓
+              Store in ChromaDB + MySQL chunks table
+Step-by-Step:
+
+User uploads PDF/TXT/DOCX file via React frontend
+Frontend sends file to API Gateway (POST /upload)
+API Gateway forwards to File Service for processing
+File Service extracts text and stores file metadata in MySQL
+Background Task triggers LangChain Q&A Service to process document
+LangChain Service uses RecursiveCharacterTextSplitter to chunk text intelligently
+SentenceTransformers creates vector embeddings for each chunk
+ChromaDB stores vectors for similarity search
+MySQL stores chunk text and metadata
+
+2. Question & Answer Flow (LangChain RAG)
+User asks question → Frontend → API Gateway → LangChain Q&A Service
+                                                      ↓
+                              Vector Similarity Search (ChromaDB)
+                                                      ↓
+                              Retrieve relevant chunks
+                                                      ↓
+                              Build context with LangChain Documents
+                                                      ↓
+                              Send to AWS Bedrock (Claude) → Generate Answer
+                                                      ↓
+                              Add citations & confidence score
+                                                      ↓
+                              Return to user via API Gateway → Frontend
+Step-by-Step:
+
+User types question in frontend Q&A mode
+Frontend sends question to API Gateway (POST /qa/ask)
+API Gateway forwards to LangChain Q&A Service
+LangChain Q&A performs vector similarity search in ChromaDB
+ChromaDB returns most relevant document chunks based on embeddings
+RAG Engine builds context using LangChain Document objects
+Enhanced prompt sent to AWS Bedrock (Claude) with document context
+Claude generates answer based on provided context
+Citation system extracts sources and calculates confidence
+Response includes answer, sources, confidence, and related questions
+
+3. Traditional Chat Flow (Bedrock Only)
+User message → Frontend → API Gateway → Bedrock Service → AWS Bedrock
+                              ↓              ↓              ↓
+                        Conversation    Add context    Generate response
+                         history      from files           ↓
+                              ↓              ↓              ↓
+                        Store in ← API Gateway ← Bedrock Service
+                         MySQL
+🧩 Component Details & Responsibilities
+🌐 Frontend (React - Port 3000)
+
+Technology: React with modern hooks
+Responsibilities:
+
+User interface for chat and file upload
+Q&A mode toggle (LangChain vs traditional chat)
+Real-time processing status updates
+Analytics dashboard
+Session management
+
+
+Key Features:
+
+Drag & drop file upload
+Conversation history display
+Source citations display
+Related questions suggestions
+
+
+
+🚪 API Gateway (FastAPI - Port 8000)
+
+Technology: FastAPI with async support
+Responsibilities:
+
+Route requests to appropriate services
+Handle file uploads and processing coordination
+Manage conversation storage
+Provide unified API interface
+Error handling and fallbacks
+
+
+Key Endpoints:
+
+POST /chat - Main chat endpoint with Q&A routing
+POST /upload - File upload with background processing
+GET /analytics/{session_id} - Session analytics
+GET /services/status - Health monitoring
+
+
+
+📁 File Service (FastAPI - Port 7000)
+
+Technology: FastAPI with file processing libraries
+Responsibilities:
+
+Handle file uploads (PDF, TXT, DOCX, CSV, JSON, MD)
+Extract text content from various formats
+Store file metadata in MySQL
+Trigger background document processing
+
+
+Libraries Used:
+
+PyPDF2 for PDF processing
+python-docx for Word documents
+Built-in CSV/JSON parsers
+
+
+
+🧠 LangChain Q&A Service (FastAPI - Port 6000) - CORE AI
+
+Technology: FastAPI + LangChain + ChromaDB + SentenceTransformers
+Responsibilities:
+
+Document Processing: Intelligent text chunking with LangChain
+Vector Storage: Create and manage embeddings with ChromaDB
+RAG Implementation: Retrieval-Augmented Generation
+Question Answering: Vector similarity search + context building
+Citation Generation: Track sources and calculate confidence
+
+
+LangChain Components:
+
+RecursiveCharacterTextSplitter - Smart text chunking
+ChromaDB - Vector database for similarity search
+SentenceTransformers - Lightweight embedding model (all-MiniLM-L6-v2)
+Document objects - Structured document representation
+
+
+
+🤖 Bedrock Service (Go - Port 9000)
+
+Technology: Go with AWS SDK
+Responsibilities:
+
+Interface with AWS Bedrock API
+Handle multiple Claude model versions
+Manage API authentication and rate limiting
+Provide fallback between model versions
+
+
+Supported Models:
+
+Claude 3.5 Sonnet (primary)
+Claude 3 Sonnet/Haiku (fallback)
+Automatic model availability testing
+
+
+
+🗄️ MySQL Database (Port 3306)
+
+Technology: MySQL 8.0 with optimized configuration
+Responsibilities:
+
+Store conversation history
+Store file metadata and processing status
+Store document chunks and metadata
+Store Q&A interactions and analytics
+Session management
+
+
+Key Tables:
+
+conversations - Chat history with metadata
+uploaded_files - File information and status
+document_chunks - Text chunks with LangChain metadata
+qa_interactions - Q&A sessions with confidence scores
+
+
+
+🔄 RAG (Retrieval-Augmented Generation) Pipeline
+Phase 1: Document Ingestion
+Raw Document → Text Extraction → LangChain Text Splitting → 
+Chunk Optimization → Vector Embedding → ChromaDB Storage → MySQL Metadata
+Phase 2: Question Processing
+User Question → Vector Embedding → ChromaDB Similarity Search → 
+Relevant Chunks Retrieval → LangChain Document Assembly → 
+Context Building → Bedrock API Call → Answer Generation
+Phase 3: Response Enhancement
+Generated Answer → Source Citation → Confidence Calculation → 
+Related Questions → Response Assembly → User Delivery
