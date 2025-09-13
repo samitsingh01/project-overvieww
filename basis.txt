@@ -1,0 +1,181 @@
+System Architecture Overview
+The service consists of several key components working together:
+
+FastAPI main application (main.py) - API endpoints and orchestration
+Document Chunker - Intelligently splits documents into searchable chunks
+Vector Store - Stores and searches document embeddings
+RAG Engine - Generates answers using retrieved context
+Citation Tracker - Creates proper citations for sources
+
+File-by-File Explanation
+1. Dockerfile
+Purpose: Containerizes the application for deployment
+
+Uses multi-stage build for optimization
+Creates non-root user for security
+Sets up proper Python environment
+Includes health checks
+Exposes port 6000 for the API
+
+2. main.py - Core API Application
+Purpose: Main FastAPI application with all endpoints
+Key Features:
+
+Document Processing: /documents/process endpoint processes uploaded files
+Q&A Endpoint: /qa/ask answers questions using RAG
+Analytics: Provides session analytics and processing status
+Health Monitoring: Health checks for service dependencies
+
+Main Workflow:
+
+Documents are uploaded and processed into chunks
+Chunks are embedded and stored in database
+User asks questions via /qa/ask
+System retrieves relevant chunks
+RAG engine generates answer with citations
+
+3. requirements.txt
+Purpose: Python dependencies
+
+FastAPI for web framework
+MySQL connector for database
+httpx for HTTP requests
+NumPy/scikit-learn for embeddings
+NLTK for text processing
+
+4. services/document_chunker.py
+Purpose: Intelligently splits documents into searchable chunks
+Key Features:
+
+Smart Chunking: Detects document structure (headers, sections)
+Overlap Strategy: Maintains context between chunks
+Multiple Formats: Handles plain text, structured documents, markdown
+Metadata Enrichment: Adds page numbers, sections, word counts
+
+Algorithm:
+pythondef chunk_document(text, filename):
+    1. Clean and preprocess text
+    2. Detect document type (structured vs plain)
+    3. Apply appropriate chunking strategy
+    4. Add metadata to each chunk
+    5. Return enriched chunks
+5. services/vector_store.py
+Purpose: Stores and searches document embeddings
+Current Implementation: Simplified keyword-based search
+
+Generates basic embeddings (placeholder for real embeddings)
+Uses keyword matching for similarity search
+Includes fallback mechanisms for low-similarity results
+
+Search Algorithm:
+pythondef search_similar_chunks(query, session_id):
+    1. Get all chunks for session
+    2. Calculate word overlap with query
+    3. Add substring matching boost
+    4. Filter by confidence threshold
+    5. Sort by similarity and return top-k
+6. services/rag_engine.py
+Purpose: Generates intelligent answers using retrieved context
+Key Features:
+
+Context Building: Combines multiple document chunks
+Prompt Engineering: Creates effective prompts for AI models
+Fallback Answers: Rule-based answers when AI service unavailable
+Confidence Scoring: Calculates answer reliability
+Related Questions: Suggests follow-up questions
+
+Answer Generation Process:
+pythondef generate_answer(question, context_chunks):
+    1. Build context from chunks
+    2. Create RAG prompt
+    3. Call Bedrock AI service
+    4. Calculate confidence score
+    5. Return structured response
+7. services/citation_tracker.py
+Purpose: Creates proper citations and source references
+Key Features:
+
+Relevance Scoring: Matches chunks to generated answers
+Snippet Extraction: Finds most relevant text portions
+Citation Formatting: Creates academic-style citations
+Quote Detection: Identifies direct quotes from sources
+
+Citation Algorithm:
+pythondef generate_citations(chunks, answer):
+    1. Calculate relevance between chunks and answer
+    2. Extract key phrases and direct quotes
+    3. Score each chunk's contribution
+    4. Create formatted citations
+    5. Sort by relevance
+Data Flow
+Document Processing Flow:
+
+Upload → File uploaded to system
+Content Extraction → Text extracted from file
+Chunking → Document split into semantic chunks
+Embedding → Each chunk gets vector representation
+Storage → Chunks stored in database with metadata
+
+Question Answering Flow:
+
+Query → User submits question
+Retrieval → Find relevant document chunks
+Context Building → Combine chunks into context
+Generation → AI generates answer using context
+Citation → Create source references
+Response → Return answer with citations and confidence
+
+Database Schema
+The system uses several MySQL tables:
+
+document_chunks: Stores processed document chunks with embeddings
+qa_interactions: Logs all questions and answers
+uploaded_files: Tracks uploaded documents
+qa_feedback: Stores user feedback on answers
+
+Key Design Patterns
+1. Service-Oriented Architecture
+
+Separate services for different responsibilities
+Loose coupling between components
+Easy to test and maintain
+
+2. Fallback Mechanisms
+
+Rule-based answers when AI unavailable
+Keyword search when vector search fails
+Error handling at every level
+
+3. Confidence Scoring
+
+Multi-factor confidence calculation
+Helps users understand answer reliability
+Improves over time with feedback
+
+4. Async Processing
+
+Background document processing
+Non-blocking API calls
+Better user experience
+
+Configuration
+The service is highly configurable through environment variables:
+
+DATABASE_URL: MySQL connection string
+BEDROCK_SERVICE_URL: AI service endpoint
+FILE_SERVICE_URL: File processing service
+
+Strengths
+
+Comprehensive: Handles entire RAG pipeline
+Robust: Multiple fallback mechanisms
+Scalable: Containerized and service-oriented
+Observable: Extensive logging and analytics
+User-Friendly: Clear citations and confidence scores
+
+Areas for Improvement
+
+Vector Embeddings: Currently uses simplified keyword matching
+AI Integration: Could support multiple AI providers
+Caching: Could cache frequent queries
+Real-time Updates: Could support live document updates
